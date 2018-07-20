@@ -3,13 +3,13 @@ package org.launchcode.techjobs.console;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.launchcode.techjobs.console.job_description.FieldComparator;
+import org.launchcode.techjobs.console.job_description.JobDescription;
 
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by LaunchCode
@@ -19,7 +19,7 @@ public class JobData {
     private static final String DATA_FILE = "resources/job_data.csv";
     private static Boolean isDataLoaded = false;
 
-    private static ArrayList<HashMap<String, String>> allJobs;
+    private static ArrayList<JobDescription> allJobs;
 
     /**
      * Fetch list of all values from loaded data,
@@ -35,18 +35,18 @@ public class JobData {
 
         ArrayList<String> values = new ArrayList<>();
 
-        for (HashMap<String, String> row : allJobs) {
-            String aValue = row.get(field);
-
-            if (!values.contains(aValue)) {
-                values.add(aValue);
+        for (JobDescription job : allJobs) {
+            String jobValue = job.getField(field);
+            if (!values.contains(jobValue)) {
+                values.add(jobValue);
             }
         }
+        values.sort(null);
 
         return values;
     }
 
-    public static ArrayList<HashMap<String, String>> findAll() {
+    public static ArrayList<JobDescription> findAll() {
 
         // load data, if not already loaded
         loadData();
@@ -65,23 +65,64 @@ public class JobData {
      * @param value Value of teh field to search for
      * @return List of all jobs matching the criteria
      */
-    public static ArrayList<HashMap<String, String>> findByColumnAndValue(String column, String value) {
+    public static ArrayList<JobDescription> findByColumnAndValue(String column, String value) {
 
         // load data, if not already loaded
         loadData();
 
-        ArrayList<HashMap<String, String>> jobs = new ArrayList<>();
+        ArrayList<JobDescription> jobs = new ArrayList<>();
 
-        for (HashMap<String, String> row : allJobs) {
-
-            String aValue = row.get(column);
-
-            if (aValue.contains(value)) {
-                jobs.add(row);
+        for (JobDescription job : allJobs) {
+            String jobValue = job.getField(column);
+            if (jobValue.contains(value)) {
+                jobs.add(job);
             }
         }
 
         return jobs;
+    }
+
+    public static ArrayList<JobDescription> findbyTerm(String term) {
+
+        // load data, if not already loaded
+        loadData();
+
+        ArrayList<JobDescription> results = new ArrayList<>();
+
+        String[] columns = {
+            "name",
+            "employer",
+            "location",
+            "core competency",
+            "position type"
+        };
+
+        for (JobDescription job : allJobs) {
+            for (String column: columns) {
+                String columnValue = job.getField(column).toLowerCase();
+                String searchTerm = term.toLowerCase();
+
+                if (
+                    columnValue.contains(searchTerm) &&
+                    !results.contains(job)
+                ) { results.add(job); }
+            }
+        }
+        return results;
+    }
+
+    // sort by column
+    public static ArrayList<JobDescription> sortResults(ArrayList<JobDescription> results, String column) {
+        ArrayList<JobDescription> copy = new ArrayList<>(results);
+        Collections.sort(copy, new FieldComparator(column));
+        return copy;
+    }
+
+    // default sort by "name" field
+    public static ArrayList<JobDescription> sortResults(ArrayList<JobDescription> results) {
+        ArrayList<JobDescription> copy = new ArrayList<>(results);
+        Collections.sort(copy, new FieldComparator());
+        return copy;
     }
 
     /**
@@ -90,9 +131,7 @@ public class JobData {
     private static void loadData() {
 
         // Only load data once
-        if (isDataLoaded) {
-            return;
-        }
+        if (isDataLoaded) { return; }
 
         try {
 
@@ -107,11 +146,13 @@ public class JobData {
 
             // Put the records into a more friendly format
             for (CSVRecord record : records) {
-                HashMap<String, String> newJob = new HashMap<>();
-
-                for (String headerLabel : headers) {
-                    newJob.put(headerLabel, record.get(headerLabel));
-                }
+                JobDescription newJob = new JobDescription(
+                    record.get("name"),
+                    record.get("location"),
+                    record.get("employer"),
+                    record.get("position type"),
+                    record.get("core competency")
+                );
 
                 allJobs.add(newJob);
             }
